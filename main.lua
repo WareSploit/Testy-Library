@@ -197,7 +197,7 @@ local OpenBtn = create("ImageButton", {
 	Parent = TabOpener,
 })
 
-create("TextLabel", {
+local VersionLabel = create("TextLabel", {
 	Name = "Version",
 	Size = UDim2.new(0, 220, 0, 27),
 	Position = UDim2.new(0, 60, 0, 7),
@@ -216,16 +216,17 @@ Testy.Font = FontRegular
 Testy.FontBold = FontBold
 Testy.Pages = {}
 Testy.TabButtons = {}
+Testy.TabOrder = {}
 Testy.Flags = {}
 Testy.Gui = ScreenGui
 Testy.MainFrame = MainFrame
 Testy.TopBar = TopBar
 Testy.Content = Content
 Testy.HasFile = HAS_FILE
+Testy.TabWidth = 111
 
 local ActiveTab = nil
 local TabOrder = 0
-local TAB_WIDTH = 111
 
 local function makePage(name)
 	local page = create("ScrollingFrame", {
@@ -270,18 +271,19 @@ local function switchTab(name)
 	tween(tabButton, 0.15, { BackgroundColor3 = Colors.SurfaceHover })
 end
 
-function Testy:RegisterTab(name)
+function Testy:RegisterTab(name, display)
 	TabOrder = TabOrder + 1
 	local order = TabOrder
-	local xPos = (order - 1) * TAB_WIDTH
+	local xPos = (order - 1) * self.TabWidth
+	local label = display or name
 
 	local btn = create("TextButton", {
 		Name = "Tab_" .. name,
-		Size = UDim2.fromOffset(TAB_WIDTH, 29),
+		Size = UDim2.fromOffset(self.TabWidth, 29),
 		Position = UDim2.fromOffset(xPos, 0),
 		BackgroundColor3 = Colors.Bar,
 		BorderSizePixel = 0,
-		Text = name,
+		Text = label,
 		TextColor3 = Colors.Text,
 		TextSize = 14,
 		FontFace = FontRegular,
@@ -291,6 +293,7 @@ function Testy:RegisterTab(name)
 	})
 
 	Testy.TabButtons[name] = btn
+	table.insert(Testy.TabOrder, name)
 	makePage(name)
 
 	btn.MouseEnter:Connect(function()
@@ -312,6 +315,36 @@ function Testy:RegisterTab(name)
 	end
 
 	return btn
+end
+
+function Testy:SetTitle(text)
+	if UiTitle then
+		UiTitle.Text = text or "Testy-UI"
+	end
+end
+
+function Testy:SetVersion(text)
+	if VersionLabel then
+		VersionLabel.Text = text or ""
+	end
+end
+
+function Testy:SetTabTitle(internalName, display)
+	local btn = self.TabButtons[internalName]
+	if btn then
+		btn.Text = display or internalName
+	end
+end
+
+function Testy:SetTabWidth(px)
+	self.TabWidth = px or 111
+	for index, internalName in ipairs(self.TabOrder) do
+		local btn = self.TabButtons[internalName]
+		if btn then
+			btn.Size = UDim2.fromOffset(self.TabWidth, 29)
+			btn.Position = UDim2.fromOffset((index - 1) * self.TabWidth, 0)
+		end
+	end
 end
 
 OpenBtn.MouseButton1Click:Connect(function()
@@ -1071,9 +1104,9 @@ function Testy:CreateConfig(page, configName)
 	}
 end
 
-Testy:RegisterTab("Main")
-Testy:RegisterTab("Player")
-Testy:RegisterTab("Settings")
+Testy:RegisterTab("Main", "Main")
+Testy:RegisterTab("Player", "Player")
+Testy:RegisterTab("Settings", "Settings")
 
 MainFrame.Visible = true
 
