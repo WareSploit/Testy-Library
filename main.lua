@@ -93,6 +93,7 @@ local MainFrame = create("Frame", {
 	BorderSizePixel = 0,
 	Active = true,
 	Visible = false,
+	ClipsDescendants = true,
 	ZIndex = 50,
 	Parent = ScreenGui,
 })
@@ -102,12 +103,14 @@ stroke(Colors.Border, 2, MainFrame)
 local UiTitle = create("TextLabel", {
 	Name = "UiTitle",
 	Size = UDim2.new(1, 0, 0, 30),
+	Position = UDim2.new(0, 0, 0, 0),
 	BackgroundTransparency = 1,
 	Text = "Testy-UI",
 	TextColor3 = Colors.Text,
 	TextSize = 20,
 	FontFace = FontBold,
 	TextXAlignment = Enum.TextXAlignment.Center,
+	ZIndex = 60,
 	Parent = MainFrame,
 })
 
@@ -118,6 +121,7 @@ create("ImageLabel", {
 	BackgroundTransparency = 1,
 	Image = "rbxassetid://1072321290",
 	ImageColor3 = Colors.Accent,
+	ZIndex = 61,
 	Parent = MainFrame,
 })
 
@@ -133,6 +137,7 @@ local CloseBtn = create("TextButton", {
 	FontFace = FontBold,
 	AutoButtonColor = false,
 	BorderSizePixel = 0,
+	ZIndex = 61,
 	Parent = MainFrame,
 })
 corner(4, CloseBtn)
@@ -144,6 +149,7 @@ local TopBar = create("Frame", {
 	BackgroundColor3 = Colors.BG,
 	BorderSizePixel = 0,
 	ClipsDescendants = true,
+	ZIndex = 55,
 	Parent = MainFrame,
 })
 
@@ -153,7 +159,7 @@ create("Frame", {
 	BorderSizePixel = 0,
 	Size = UDim2.new(1, 0, 0, 1),
 	Position = UDim2.new(0, 0, 1, -1),
-	ZIndex = 10,
+	ZIndex = 56,
 	Parent = TopBar,
 })
 
@@ -163,6 +169,7 @@ local Content = create("Frame", {
 	Position = UDim2.new(0, 0, 0, 59),
 	BackgroundColor3 = Colors.BG,
 	BorderSizePixel = 0,
+	ZIndex = 54,
 	Parent = MainFrame,
 })
 
@@ -231,6 +238,7 @@ local function makePage(name)
 		ScrollBarThickness = 3,
 		ScrollBarImageColor3 = Colors.Line,
 		Visible = false,
+		ZIndex = 55,
 		Parent = Content,
 	})
 	create("UIListLayout", {
@@ -278,7 +286,7 @@ function Testy:RegisterTab(name)
 		TextSize = 14,
 		FontFace = FontRegular,
 		AutoButtonColor = false,
-		ZIndex = 5,
+		ZIndex = 57,
 		Parent = TopBar,
 	})
 
