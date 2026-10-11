@@ -2,7 +2,12 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local function getGui()
+	local ok, cg = pcall(function() return game:GetService("CoreGui") end)
+	if ok and cg then return cg end
+	return LocalPlayer:WaitForChild("PlayerGui")
+end
 
 local Colors = {
 	BG = Color3.fromRGB(36, 36, 36),
@@ -60,168 +65,297 @@ local function isMove(input)
 		or input.UserInputType == Enum.UserInputType.Touch
 end
 
+if getgenv and getgenv().TestyGUI then
+	pcall(function() getgenv().TestyGUI:Destroy() end)
+end
+
+local ScreenGui = create("ScreenGui", {
+	Name = "TestyGui",
+	IgnoreGuiInset = true,
+	ResetOnSpawn = false,
+	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+	Parent = getGui(),
+})
+
+if getgenv then
+	getgenv().TestyGUI = ScreenGui
+end
+
+local MainFrame = create("Frame", {
+	Name = "MainFrame",
+	Size = UDim2.fromOffset(334, 250),
+	Position = UDim2.new(0.5, -167, 0.5, -125),
+	BackgroundColor3 = Colors.BG,
+	BorderSizePixel = 0,
+	Active = true,
+	Visible = false,
+	ZIndex = 50,
+	Parent = ScreenGui,
+})
+corner(6, MainFrame)
+stroke(Colors.Border, 2, MainFrame)
+
+create("TextLabel", {
+	Name = "UiTitle",
+	Size = UDim2.new(1, 0, 0, 30),
+	BackgroundTransparency = 1,
+	Text = "Testy-UI",
+	TextColor3 = Colors.Text,
+	TextSize = 20,
+	FontFace = FontBold,
+	TextXAlignment = Enum.TextXAlignment.Center,
+	Parent = MainFrame,
+})
+
+create("ImageLabel", {
+	Name = "SVG",
+	Size = UDim2.fromOffset(20, 20),
+	Position = UDim2.new(0, 5, 0, 5),
+	BackgroundTransparency = 1,
+	Image = "rbxassetid://1072321290",
+	ImageColor3 = Colors.Accent,
+	Parent = MainFrame,
+})
+
+local CloseBtn = create("TextButton", {
+	Name = "Close",
+	Size = UDim2.fromOffset(24, 24),
+	Position = UDim2.new(1, -30, 0, 3),
+	BackgroundColor3 = Colors.Bar,
+	BackgroundTransparency = 0.3,
+	Text = "X",
+	TextColor3 = Colors.Text,
+	TextSize = 16,
+	FontFace = FontBold,
+	AutoButtonColor = false,
+	BorderSizePixel = 0,
+	Parent = MainFrame,
+})
+corner(4, CloseBtn)
+
+local TopBar = create("Frame", {
+	Name = "TopBar",
+	Size = UDim2.new(1, 0, 0, 29),
+	Position = UDim2.new(0, 0, 0, 30),
+	BackgroundColor3 = Colors.BG,
+	BorderSizePixel = 0,
+	Parent = MainFrame,
+})
+
+create("Frame", {
+	Name = "Line",
+	BackgroundColor3 = Colors.Line,
+	BorderSizePixel = 0,
+	Size = UDim2.new(1, 0, 0, 1),
+	Position = UDim2.new(0, 0, 1, -1),
+	Parent = TopBar,
+})
+
+local Content = create("Frame", {
+	Name = "Content",
+	Size = UDim2.new(1, 0, 1, -59),
+	Position = UDim2.new(0, 0, 0, 59),
+	BackgroundColor3 = Colors.BG,
+	BorderSizePixel = 0,
+	Parent = MainFrame,
+})
+
+local TabOpener = create("Frame", {
+	Name = "TabOpener",
+	Size = UDim2.fromOffset(349, 41),
+	Position = UDim2.new(0.5, -175, 0, 16),
+	BackgroundColor3 = Colors.BG,
+	BackgroundTransparency = 0.1,
+	BorderSizePixel = 0,
+	Parent = ScreenGui,
+})
+stroke(Colors.Border, 2, TabOpener)
+
+local OpenBtn = create("ImageButton", {
+	Name = "OpenButton",
+	Size = UDim2.fromOffset(41, 41),
+	Position = UDim2.new(0, 0, 0, 0),
+	BackgroundTransparency = 1,
+	Image = "rbxassetid://1424953189",
+	ScaleType = Enum.ScaleType.Fit,
+	AutoButtonColor = false,
+	BorderSizePixel = 0,
+	ZIndex = 100,
+	Parent = TabOpener,
+})
+
+create("TextLabel", {
+	Name = "Version",
+	Size = UDim2.new(0, 220, 0, 27),
+	Position = UDim2.new(0, 60, 0, 7),
+	BackgroundTransparency = 1,
+	Text = "Testy-UI v1.0.0",
+	TextColor3 = Colors.Text,
+	TextSize = 18,
+	FontFace = FontRegular,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Parent = TabOpener,
+})
+
 local Testy = {}
 Testy.Colors = Colors
 Testy.Font = FontRegular
 Testy.FontBold = FontBold
 Testy.Pages = {}
 Testy.Flags = {}
+Testy.Gui = ScreenGui
+Testy.MainFrame = MainFrame
+Testy.TopBar = TopBar
+Testy.Content = Content
 
-function Testy:Attach(guiName)
-	guiName = guiName or "TestyGui"
+local function makePage(name)
+	local page = create("ScrollingFrame", {
+		Name = "Page_" .. name,
+		Size = UDim2.new(1, 0, 1, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		CanvasSize = UDim2.new(0, 0, 0, 0),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ScrollBarThickness = 3,
+		ScrollBarImageColor3 = Colors.Line,
+		Visible = false,
+		Parent = Content,
+	})
+	create("UIListLayout", {
+		Padding = UDim.new(0, 5),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}, page)
+	create("UIPadding", {
+		PaddingTop = UDim.new(0, 5),
+		PaddingBottom = UDim.new(0, 5),
+		PaddingLeft = UDim.new(0, 5),
+		PaddingRight = UDim.new(0, 5),
+	}, page)
+	Testy.Pages[name] = page
+	return page
+end
 
-	local gui = PlayerGui:WaitForChild(guiName, 10)
-	if not gui then
-		warn("[Testy] GUI not found: " .. guiName)
-		return nil
+local function makeTabButton(name, xOffset)
+	local btn = create("TextButton", {
+		Name = "Tab_" .. name,
+		Size = UDim2.fromOffset(111, 29),
+		Position = UDim2.fromOffset(xOffset, 0),
+		BackgroundColor3 = Colors.Bar,
+		BorderSizePixel = 0,
+		Text = name,
+		TextColor3 = Colors.Text,
+		TextSize = 14,
+		FontFace = FontRegular,
+		AutoButtonColor = false,
+		Parent = TopBar,
+	})
+	return btn
+end
+
+local TabButtons = {}
+local ActiveTab = nil
+
+local function switchTab(name)
+	local tabButton = TabButtons[name]
+	local page = Testy.Pages[name]
+	if not tabButton or not page then return end
+
+	if ActiveTab then
+		tween(ActiveTab, 0.15, { BackgroundColor3 = Colors.Bar })
 	end
-
-	local mainFrame = gui:FindFirstChild("MainFrame")
-	local tabOpener = gui:FindFirstChild("TabOpener")
-	if not mainFrame or not tabOpener then
-		warn("[Testy] Missing MainFrame or TabOpener")
-		return nil
+	for pageName, pageInstance in pairs(Testy.Pages) do
+		pageInstance.Visible = (pageName == name)
 	end
+	ActiveTab = tabButton
+	tween(tabButton, 0.15, { BackgroundColor3 = Colors.SurfaceHover })
+end
 
-	local topBar = mainFrame:FindFirstChild("TopBar")
-	local content = mainFrame:FindFirstChild("Content")
-	local closeBtn = mainFrame:FindFirstChild("Close")
-	local uiTitle = mainFrame:FindFirstChild("UiTitle")
-	local openBtn = tabOpener:FindFirstChild("OpenButton")
+local function registerTab(name, xOffset)
+	local btn = makeTabButton(name, xOffset)
+	TabButtons[name] = btn
+	makePage(name)
 
-	if not topBar or not content then
-		warn("[Testy] Missing TopBar or Content")
-		return nil
-	end
-
-	self.Gui = gui
-	self.MainFrame = mainFrame
-	self.TabOpener = tabOpener
-	self.TopBar = topBar
-	self.Content = content
-
-	for _, page in ipairs(content:GetChildren()) do
-		if page:IsA("ScrollingFrame") then
-			local pageName = page.Name:gsub("^Page_", "")
-			self.Pages[pageName] = page
-		end
-	end
-
-	local tabs = {}
-	for _, tab in ipairs(topBar:GetChildren()) do
-		if tab:IsA("TextButton") and tab.Name:match("^Tab_") then
-			local tabName = tab.Name:gsub("^Tab_", "")
-			tabs[tabName] = tab
-		end
-	end
-
-	local activeTabButton = nil
-	local function switchTab(tabName)
-		local tabButton = tabs[tabName]
-		local page = self.Pages[tabName]
-		if not tabButton or not page then return end
-
-		if activeTabButton then
-			tween(activeTabButton, 0.15, { BackgroundColor3 = Colors.Bar })
-		end
-		for pageName, pageInstance in pairs(self.Pages) do
-			pageInstance.Visible = (pageName == tabName)
-		end
-		activeTabButton = tabButton
-		tween(tabButton, 0.15, { BackgroundColor3 = Colors.SurfaceHover })
-	end
-
-	for tabName, tabButton in pairs(tabs) do
-		tabButton.MouseEnter:Connect(function()
-			if activeTabButton ~= tabButton then
-				tween(tabButton, 0.12, { BackgroundColor3 = Colors.Surface })
-			end
-		end)
-		tabButton.MouseLeave:Connect(function()
-			if activeTabButton ~= tabButton then
-				tween(tabButton, 0.12, { BackgroundColor3 = Colors.Bar })
-			end
-		end)
-		tabButton.MouseButton1Click:Connect(function()
-			switchTab(tabName)
-		end)
-	end
-
-	for name, page in pairs(self.Pages) do
-		if tabs[name] then
-			page.Visible = false
-		end
-	end
-	if tabs["Main"] then
-		switchTab("Main")
-	end
-
-	if openBtn then
-		openBtn.MouseButton1Click:Connect(function()
-			mainFrame.Visible = not mainFrame.Visible
-		end)
-	end
-
-	if closeBtn then
-		closeBtn.MouseEnter:Connect(function()
-			tween(closeBtn, 0.12, { BackgroundColor3 = Colors.Red, BackgroundTransparency = 0 })
-		end)
-		closeBtn.MouseLeave:Connect(function()
-			tween(closeBtn, 0.12, { BackgroundColor3 = Colors.Bar, BackgroundTransparency = 0.3 })
-		end)
-		closeBtn.MouseButton1Click:Connect(function()
-			mainFrame.Visible = false
-		end)
-	end
-
-	if uiTitle then
-		local dragging, dragStart, startPos
-		uiTitle.InputBegan:Connect(function(input)
-			if isPress(input) then
-				dragging = true
-				dragStart = input.Position
-				startPos = mainFrame.Position
-			end
-		end)
-		UserInputService.InputChanged:Connect(function(input)
-			if dragging and isMove(input) then
-				local delta = input.Position - dragStart
-				mainFrame.Position = UDim2.new(
-					startPos.X.Scale, startPos.X.Offset + delta.X,
-					startPos.Y.Scale, startPos.Y.Offset + delta.Y
-				)
-			end
-		end)
-		UserInputService.InputEnded:Connect(function(input)
-			if isPress(input) then
-				dragging = false
-			end
-		end)
-	end
-
-	UserInputService.InputBegan:Connect(function(input, gameProcessed)
-		if gameProcessed then return end
-		if input.KeyCode == Enum.KeyCode.RightControl then
-			mainFrame.Visible = not mainFrame.Visible
-		end
-		if input.KeyCode == Enum.KeyCode.Escape then
-			mainFrame.Visible = false
+	btn.MouseEnter:Connect(function()
+		if ActiveTab ~= btn then
+			tween(btn, 0.12, { BackgroundColor3 = Colors.Surface })
 		end
 	end)
-
-	self.Hover = function(button, baseColor, hoverColor)
-		baseColor = baseColor or Colors.Surface
-		hoverColor = hoverColor or Colors.SurfaceHover
-		button.MouseEnter:Connect(function()
-			tween(button, 0.12, { BackgroundColor3 = hoverColor })
-		end)
-		button.MouseLeave:Connect(function()
-			tween(button, 0.12, { BackgroundColor3 = baseColor })
-		end)
-	end
-
-	return self
+	btn.MouseLeave:Connect(function()
+		if ActiveTab ~= btn then
+			tween(btn, 0.12, { BackgroundColor3 = Colors.Bar })
+		end
+	end)
+	btn.MouseButton1Click:Connect(function()
+		switchTab(name)
+	end)
 end
+
+registerTab("Main", 0)
+registerTab("Player", 111)
+registerTab("Visual", 222)
+
+switchTab("Main")
+
+local function hover(button, baseColor, hoverColor)
+	baseColor = baseColor or Colors.Surface
+	hoverColor = hoverColor or Colors.SurfaceHover
+	button.MouseEnter:Connect(function()
+		tween(button, 0.12, { BackgroundColor3 = hoverColor })
+	end)
+	button.MouseLeave:Connect(function()
+		tween(button, 0.12, { BackgroundColor3 = baseColor })
+	end)
+end
+
+Testy.Hover = hover
+
+OpenBtn.MouseButton1Click:Connect(function()
+	MainFrame.Visible = not MainFrame.Visible
+end)
+
+CloseBtn.MouseEnter:Connect(function()
+	tween(CloseBtn, 0.12, { BackgroundColor3 = Colors.Red, BackgroundTransparency = 0 })
+end)
+CloseBtn.MouseLeave:Connect(function()
+	tween(CloseBtn, 0.12, { BackgroundColor3 = Colors.Bar, BackgroundTransparency = 0.3 })
+end)
+CloseBtn.MouseButton1Click:Connect(function()
+	MainFrame.Visible = false
+end)
+
+local UiTitle = MainFrame:FindFirstChild("UiTitle")
+local dragging, dragStart, startPos
+UiTitle.InputBegan:Connect(function(input)
+	if isPress(input) then
+		dragging = true
+		dragStart = input.Position
+		startPos = MainFrame.Position
+	end
+end)
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and isMove(input) then
+		local delta = input.Position - dragStart
+		MainFrame.Position = UDim2.new(
+			startPos.X.Scale, startPos.X.Offset + delta.X,
+			startPos.Y.Scale, startPos.Y.Offset + delta.Y
+		)
+	end
+end)
+UserInputService.InputEnded:Connect(function(input)
+	if isPress(input) then
+		dragging = false
+	end
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == Enum.KeyCode.RightControl then
+		MainFrame.Visible = not MainFrame.Visible
+	end
+	if input.KeyCode == Enum.KeyCode.Escape then
+		MainFrame.Visible = false
+	end
+end)
 
 function Testy:GetPage(name)
 	return self.Pages[name]
@@ -230,7 +364,6 @@ end
 function Testy:CreateLabel(page, text)
 	local pageInstance = type(page) == "string" and self.Pages[page] or page
 	if not pageInstance then return end
-
 	return create("TextLabel", {
 		Size = UDim2.new(1, 0, 0, 22),
 		BackgroundTransparency = 1,
@@ -259,7 +392,7 @@ function Testy:CreateButton(page, text, callback)
 		Parent = pageInstance,
 	})
 	corner(4, button)
-	self.Hover(button, Colors.Surface, Colors.SurfaceHover)
+	hover(button, Colors.Surface, Colors.SurfaceHover)
 
 	button.MouseButton1Click:Connect(function()
 		if callback then
@@ -267,7 +400,6 @@ function Testy:CreateButton(page, text, callback)
 			if not ok then warn("[Testy] Button error: " .. tostring(err)) end
 		end
 	end)
-
 	return button
 end
 
@@ -276,7 +408,6 @@ function Testy:CreateToggle(page, label, default, callback)
 	if not pageInstance then return end
 
 	local state = default == true
-
 	local row = create("Frame", {
 		Size = UDim2.new(1, 0, 0, 34),
 		BackgroundColor3 = Colors.Surface,
@@ -333,14 +464,8 @@ function Testy:CreateToggle(page, label, default, callback)
 	end)
 
 	return {
-		Set = function(_, value)
-			state = value == true
-			render()
-			if callback then pcall(callback, state) end
-		end,
-		Get = function()
-			return state
-		end,
+		Set = function(_, value) state = value == true; render(); if callback then pcall(callback, state) end end,
+		Get = function() return state end,
 	}
 end
 
@@ -466,9 +591,7 @@ function Testy:CreateSlider(page, label, minValue, maxValue, default, callback)
 			valueLabel.Text = tostring(value)
 			if callback then pcall(callback, value) end
 		end,
-		Get = function()
-			return value
-		end,
+		Get = function() return value end,
 	}
 end
 
@@ -613,9 +736,7 @@ function Testy:CreateDropdown(page, label, options, default, callback)
 				if callback then pcall(callback, value) end
 			end
 		end,
-		Get = function()
-			return selected
-		end,
+		Get = function() return selected end,
 	}
 end
 
@@ -670,12 +791,8 @@ function Testy:CreateInput(page, label, placeholder, default, callback)
 	end)
 
 	return {
-		Set = function(_, value)
-			box.Text = tostring(value)
-		end,
-		Get = function()
-			return box.Text
-		end,
+		Set = function(_, value) box.Text = tostring(value) end,
+		Get = function() return box.Text end,
 	}
 end
 
@@ -742,13 +859,8 @@ function Testy:CreateKeybind(page, label, default, callback)
 	end)
 
 	return {
-		Set = function(_, newKey)
-			key = newKey
-			keyBtn.Text = newKey.Name
-		end,
-		Get = function()
-			return key
-		end,
+		Set = function(_, newKey) key = newKey; keyBtn.Text = newKey.Name end,
+		Get = function() return key end,
 	}
 end
 
@@ -757,7 +869,7 @@ local NotifyHolder = create("Frame", {
 	Size = UDim2.new(0, 280, 1, -20),
 	Position = UDim2.new(1, -296, 0, 10),
 	BackgroundTransparency = 1,
-	Parent = PlayerGui,
+	Parent = ScreenGui,
 })
 create("UIListLayout", {
 	Padding = UDim.new(0, 6),
@@ -792,7 +904,7 @@ function Testy:Notify(title, content, kind, duration)
 		Parent = card,
 	})
 
-	local titleLabel = create("TextLabel", {
+	create("TextLabel", {
 		Size = UDim2.new(1, -22, 0, 18),
 		Position = UDim2.new(0, 14, 0, 6),
 		BackgroundTransparency = 1,
@@ -804,7 +916,7 @@ function Testy:Notify(title, content, kind, duration)
 		Parent = card,
 	})
 
-	local contentLabel = create("TextLabel", {
+	create("TextLabel", {
 		Size = UDim2.new(1, -22, 0, 26),
 		Position = UDim2.new(0, 14, 0, 26),
 		BackgroundTransparency = 1,
@@ -825,8 +937,14 @@ function Testy:Notify(title, content, kind, duration)
 		if not card.Parent then return end
 		tween(card, 0.25, { BackgroundTransparency = 1, Position = UDim2.new(0, 40, 0, 0) })
 		task.wait(0.3)
-		card:Destroy()
+		pcall(function() card:Destroy() end)
 	end)
 end
+
+MainFrame.Visible = true
+
+task.delay(0.3, function()
+	Testy:Notify("Testy UI", "v1.0.0 loaded - RCTRL to toggle", "success", 4)
+end)
 
 return Testy
