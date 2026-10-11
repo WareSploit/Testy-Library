@@ -1,7 +1,10 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
+
+local HAS_FILE = (typeof(writefile) == "function") and (typeof(readfile) == "function")
 
 local function getGui()
 	local ok, cg = pcall(function() return game:GetService("CoreGui") end)
@@ -14,6 +17,7 @@ local Colors = {
 	Bar = Color3.fromRGB(31, 31, 31),
 	Surface = Color3.fromRGB(43, 43, 43),
 	SurfaceHover = Color3.fromRGB(53, 53, 53),
+	ListBG = Color3.fromRGB(28, 28, 28),
 	Line = Color3.fromRGB(56, 56, 56),
 	Border = Color3.fromRGB(28, 28, 28),
 	Text = Color3.fromRGB(255, 255, 255),
@@ -95,7 +99,7 @@ local MainFrame = create("Frame", {
 corner(6, MainFrame)
 stroke(Colors.Border, 2, MainFrame)
 
-create("TextLabel", {
+local UiTitle = create("TextLabel", {
 	Name = "UiTitle",
 	Size = UDim2.new(1, 0, 0, 30),
 	BackgroundTransparency = 1,
@@ -189,7 +193,7 @@ create("TextLabel", {
 	Size = UDim2.new(0, 220, 0, 27),
 	Position = UDim2.new(0, 60, 0, 7),
 	BackgroundTransparency = 1,
-	Text = "Testy-UI v1.0.0",
+	Text = "Testy-UI v1.1.0",
 	TextColor3 = Colors.Text,
 	TextSize = 18,
 	FontFace = FontRegular,
@@ -202,11 +206,16 @@ Testy.Colors = Colors
 Testy.Font = FontRegular
 Testy.FontBold = FontBold
 Testy.Pages = {}
+Testy.TabButtons = {}
 Testy.Flags = {}
 Testy.Gui = ScreenGui
 Testy.MainFrame = MainFrame
 Testy.TopBar = TopBar
 Testy.Content = Content
+Testy.HasFile = HAS_FILE
+
+local ActiveTab = nil
+local TabOrder = 0
 
 local function makePage(name)
 	local page = create("ScrollingFrame", {
@@ -235,28 +244,8 @@ local function makePage(name)
 	return page
 end
 
-local function makeTabButton(name, xOffset)
-	local btn = create("TextButton", {
-		Name = "Tab_" .. name,
-		Size = UDim2.fromOffset(111, 29),
-		Position = UDim2.fromOffset(xOffset, 0),
-		BackgroundColor3 = Colors.Bar,
-		BorderSizePixel = 0,
-		Text = name,
-		TextColor3 = Colors.Text,
-		TextSize = 14,
-		FontFace = FontRegular,
-		AutoButtonColor = false,
-		Parent = TopBar,
-	})
-	return btn
-end
-
-local TabButtons = {}
-local ActiveTab = nil
-
 local function switchTab(name)
-	local tabButton = TabButtons[name]
+	local tabButton = Testy.TabButtons[name]
 	local page = Testy.Pages[name]
 	if not tabButton or not page then return end
 
@@ -270,9 +259,34 @@ local function switchTab(name)
 	tween(tabButton, 0.15, { BackgroundColor3 = Colors.SurfaceHover })
 end
 
-local function registerTab(name, xOffset)
-	local btn = makeTabButton(name, xOffset)
-	TabButtons[name] = btn
+function Testy:RegisterTab(name)
+	TabOrder = TabOrder + 1
+	local order = TabOrder
+
+	local btn = create("TextButton", {
+		Name = "Tab_" .. name,
+		Size = UDim2.fromOffset(111, 29),
+		BackgroundColor3 = Colors.Bar,
+		BorderSizePixel = 0,
+		Text = name,
+		TextColor3 = Colors.Text,
+		TextSize = 14,
+		FontFace = FontRegular,
+		AutoButtonColor = false,
+		LayoutOrder = order,
+		Parent = TopBar,
+	})
+
+	local layout = TopBar:FindFirstChildOfClass("UIListLayout")
+	if not layout then
+		layout = create("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+		}, TopBar)
+	end
+
+	Testy.TabButtons[name] = btn
 	makePage(name)
 
 	btn.MouseEnter:Connect(function()
@@ -288,26 +302,13 @@ local function registerTab(name, xOffset)
 	btn.MouseButton1Click:Connect(function()
 		switchTab(name)
 	end)
+
+	if not ActiveTab then
+		switchTab(name)
+	end
+
+	return btn
 end
-
-registerTab("Main", 0)
-registerTab("Player", 111)
-registerTab("Visual", 222)
-
-switchTab("Main")
-
-local function hover(button, baseColor, hoverColor)
-	baseColor = baseColor or Colors.Surface
-	hoverColor = hoverColor or Colors.SurfaceHover
-	button.MouseEnter:Connect(function()
-		tween(button, 0.12, { BackgroundColor3 = hoverColor })
-	end)
-	button.MouseLeave:Connect(function()
-		tween(button, 0.12, { BackgroundColor3 = baseColor })
-	end)
-end
-
-Testy.Hover = hover
 
 OpenBtn.MouseButton1Click:Connect(function()
 	MainFrame.Visible = not MainFrame.Visible
@@ -323,7 +324,6 @@ CloseBtn.MouseButton1Click:Connect(function()
 	MainFrame.Visible = false
 end)
 
-local UiTitle = MainFrame:FindFirstChild("UiTitle")
 local dragging, dragStart, startPos
 UiTitle.InputBegan:Connect(function(input)
 	if isPress(input) then
@@ -361,9 +361,20 @@ function Testy:GetPage(name)
 	return self.Pages[name]
 end
 
+function Testy:Hover(button, baseColor, hoverColor)
+	baseColor = baseColor or Colors.Surface
+	hoverColor = hoverColor or Colors.SurfaceHover
+	button.MouseEnter:Connect(function()
+		tween(button, 0.12, { BackgroundColor3 = hoverColor })
+	end)
+	button.MouseLeave:Connect(function()
+		tween(button, 0.12, { BackgroundColor3 = baseColor })
+	end)
+end
+
 function Testy:CreateLabel(page, text)
-	local pageInstance = type(page) == "string" and self.Pages[page] or page
-	if not pageInstance then return end
+	local p = type(page) == "string" and self.Pages[page] or page
+	if not p then return end
 	return create("TextLabel", {
 		Size = UDim2.new(1, 0, 0, 22),
 		BackgroundTransparency = 1,
@@ -372,13 +383,13 @@ function Testy:CreateLabel(page, text)
 		TextSize = 13,
 		FontFace = FontRegular,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = pageInstance,
+		Parent = p,
 	})
 end
 
 function Testy:CreateButton(page, text, callback)
-	local pageInstance = type(page) == "string" and self.Pages[page] or page
-	if not pageInstance then return end
+	local p = type(page) == "string" and self.Pages[page] or page
+	if not p then return end
 
 	local button = create("TextButton", {
 		Size = UDim2.new(1, 0, 0, 34),
@@ -389,10 +400,10 @@ function Testy:CreateButton(page, text, callback)
 		TextSize = 13,
 		FontFace = FontRegular,
 		AutoButtonColor = false,
-		Parent = pageInstance,
+		Parent = p,
 	})
 	corner(4, button)
-	hover(button, Colors.Surface, Colors.SurfaceHover)
+	self:Hover(button, Colors.Surface, Colors.SurfaceHover)
 
 	button.MouseButton1Click:Connect(function()
 		if callback then
@@ -404,8 +415,8 @@ function Testy:CreateButton(page, text, callback)
 end
 
 function Testy:CreateToggle(page, label, default, callback)
-	local pageInstance = type(page) == "string" and self.Pages[page] or page
-	if not pageInstance then return end
+	local p = type(page) == "string" and self.Pages[page] or page
+	if not p then return end
 
 	local state = default == true
 	local row = create("Frame", {
@@ -413,7 +424,7 @@ function Testy:CreateToggle(page, label, default, callback)
 		BackgroundColor3 = Colors.Surface,
 		BorderSizePixel = 0,
 		Active = true,
-		Parent = pageInstance,
+		Parent = p,
 	})
 	corner(4, row)
 
@@ -456,10 +467,7 @@ function Testy:CreateToggle(page, label, default, callback)
 		if isPress(input) then
 			state = not state
 			render()
-			if callback then
-				local ok, err = pcall(callback, state)
-				if not ok then warn("[Testy] Toggle error: " .. tostring(err)) end
-			end
+			if callback then pcall(callback, state) end
 		end
 	end)
 
@@ -470,8 +478,8 @@ function Testy:CreateToggle(page, label, default, callback)
 end
 
 function Testy:CreateSlider(page, label, minValue, maxValue, default, callback)
-	local pageInstance = type(page) == "string" and self.Pages[page] or page
-	if not pageInstance then return end
+	local p = type(page) == "string" and self.Pages[page] or page
+	if not p then return end
 
 	minValue = minValue or 0
 	maxValue = maxValue or 100
@@ -482,7 +490,7 @@ function Testy:CreateSlider(page, label, minValue, maxValue, default, callback)
 		BackgroundColor3 = Colors.Surface,
 		BorderSizePixel = 0,
 		Active = true,
-		Parent = pageInstance,
+		Parent = p,
 	})
 	corner(4, row)
 
@@ -555,8 +563,8 @@ function Testy:CreateSlider(page, label, minValue, maxValue, default, callback)
 		if absSize <= 0 then return end
 		local alpha = math.clamp((posX - absPos) / absSize, 0, 1)
 		value = minValue + (maxValue - minValue) * alpha
-		tween(fill, 0.08, { Size = UDim2.new(alpha, 0, 1, 0) })
-		tween(handle, 0.08, { Position = UDim2.new(alpha, 0, 0.5, 0) })
+		fill.Size = UDim2.new(alpha, 0, 1, 0)
+		handle.Position = UDim2.new(alpha, 0, 0.5, 0)
 		if value % 1 == 0 then
 			valueLabel.Text = tostring(math.floor(value))
 		else
@@ -577,9 +585,7 @@ function Testy:CreateSlider(page, label, minValue, maxValue, default, callback)
 		end
 	end)
 	UserInputService.InputEnded:Connect(function(input)
-		if isPress(input) then
-			dragging = false
-		end
+		if isPress(input) then dragging = false end
 	end)
 
 	return {
@@ -596,37 +602,51 @@ function Testy:CreateSlider(page, label, minValue, maxValue, default, callback)
 end
 
 function Testy:CreateDropdown(page, label, options, default, callback)
-	local pageInstance = type(page) == "string" and self.Pages[page] or page
-	if not pageInstance then return end
+	local p = type(page) == "string" and self.Pages[page] or page
+	if not p then return end
 
 	options = options or {}
 	local selected = default or options[1]
 	local expanded = false
 
 	local holder = create("Frame", {
-		Size = UDim2.new(1, 0, 0, 34),
+		Size = UDim2.new(1, 0, 0, 36),
 		BackgroundColor3 = Colors.Surface,
 		BorderSizePixel = 0,
-		ClipsDescendants = true,
+		ClipsDescendants = false,
 		Active = true,
-		Parent = pageInstance,
+		ZIndex = 10,
+		Parent = p,
 	})
 	corner(4, holder)
 
+	local header = create("TextButton", {
+		BackgroundColor3 = Colors.Surface,
+		BorderSizePixel = 0,
+		Size = UDim2.new(1, 0, 0, 36),
+		Position = UDim2.new(0, 0, 0, 0),
+		Text = "",
+		AutoButtonColor = false,
+		ZIndex = 11,
+		Parent = holder,
+	})
+	corner(4, header)
+
 	create("TextLabel", {
 		Size = UDim2.new(0.5, -14, 1, 0),
-		Position = UDim2.new(0, 10, 0, 0),
+		Position = UDim2.new(0, 12, 0, 0),
 		BackgroundTransparency = 1,
 		Text = label or "Dropdown",
 		TextColor3 = Colors.Text,
 		TextSize = 13,
 		FontFace = FontRegular,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = holder,
+		ZIndex = 12,
+		Parent = header,
 	})
 
 	local current = create("TextLabel", {
-		Size = UDim2.new(0.4, -26, 1, 0),
+		Size = UDim2.new(0.4, -30, 1, 0),
 		Position = UDim2.new(0.5, 0, 0, 0),
 		BackgroundTransparency = 1,
 		Text = tostring(selected),
@@ -634,97 +654,127 @@ function Testy:CreateDropdown(page, label, options, default, callback)
 		TextSize = 13,
 		FontFace = FontRegular,
 		TextXAlignment = Enum.TextXAlignment.Right,
-		Parent = holder,
+		ZIndex = 12,
+		Parent = header,
 	})
 
 	local arrow = create("TextLabel", {
-		Size = UDim2.fromOffset(18, 34),
-		Position = UDim2.new(1, -24, 0, 0),
+		Size = UDim2.fromOffset(18, 36),
+		Position = UDim2.new(1, -26, 0, 0),
 		BackgroundTransparency = 1,
 		Text = "v",
 		TextColor3 = Colors.Dim,
 		TextSize = 12,
 		FontFace = FontRegular,
-		Parent = holder,
+		ZIndex = 12,
+		Parent = header,
 	})
 
-	local list = create("Frame", {
+	header.MouseEnter:Connect(function()
+		if not expanded then
+			tween(header, 0.12, { BackgroundColor3 = Colors.SurfaceHover })
+		end
+	end)
+	header.MouseLeave:Connect(function()
+		if not expanded then
+			tween(header, 0.12, { BackgroundColor3 = Colors.Surface })
+		end
+	end)
+
+	local list = create("ScrollingFrame", {
 		Size = UDim2.new(1, 0, 0, 0),
-		Position = UDim2.new(0, 0, 0, 34),
-		BackgroundColor3 = Colors.SurfaceHover,
+		Position = UDim2.new(0, 0, 0, 38),
+		BackgroundColor3 = Colors.ListBG,
 		BorderSizePixel = 0,
-		ClipsDescendants = true,
-		ZIndex = 5,
+		CanvasSize = UDim2.new(0, 0, 0, 0),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ScrollBarThickness = 2,
+		ScrollBarImageColor3 = Colors.Line,
+		Visible = false,
+		ZIndex = 15,
 		Parent = holder,
 	})
 	corner(4, list)
+	stroke(Colors.Line, 1, list)
 	create("UIListLayout", {
-		Padding = UDim.new(0, 2),
+		Padding = UDim.new(0, 1),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}, list)
 	create("UIPadding", {
-		PaddingTop = UDim.new(0, 3),
-		PaddingBottom = UDim.new(0, 3),
-		PaddingLeft = UDim.new(0, 3),
-		PaddingRight = UDim.new(0, 3),
+		PaddingTop = UDim.new(0, 4),
+		PaddingBottom = UDim.new(0, 4),
+		PaddingLeft = UDim.new(0, 4),
+		PaddingRight = UDim.new(0, 4),
 	}, list)
 
 	local optionButtons = {}
 	local function refresh()
 		for option, button in pairs(optionButtons) do
-			button.BackgroundColor3 = option == selected and Colors.Accent or Colors.Surface
-			button.TextColor3 = option == selected and Colors.Text or Colors.Dim
+			if option == selected then
+				button.BackgroundColor3 = Colors.Accent
+				button.TextColor3 = Colors.Text
+			else
+				button.BackgroundColor3 = Colors.ListBG
+				button.TextColor3 = Colors.Dim
+			end
 		end
 		current.Text = tostring(selected)
 	end
 
 	for index, option in ipairs(options) do
 		local optionBtn = create("TextButton", {
-			Size = UDim2.new(1, 0, 0, 24),
-			BackgroundColor3 = Colors.Surface,
+			Size = UDim2.new(1, 0, 0, 26),
+			BackgroundColor3 = Colors.ListBG,
 			BorderSizePixel = 0,
 			Text = "  " .. tostring(option),
-			TextColor3 = Colors.Text,
+			TextColor3 = Colors.Dim,
 			TextSize = 12,
 			FontFace = FontRegular,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			AutoButtonColor = false,
 			LayoutOrder = index,
+			ZIndex = 16,
 			Parent = list,
 		})
 		corner(3, optionBtn)
 		optionButtons[option] = optionBtn
 
+		optionBtn.MouseEnter:Connect(function()
+			if option ~= selected then
+				tween(optionBtn, 0.1, { BackgroundColor3 = Colors.SurfaceHover, TextColor3 = Colors.Text })
+			end
+		end)
+		optionBtn.MouseLeave:Connect(function()
+			if option ~= selected then
+				tween(optionBtn, 0.1, { BackgroundColor3 = Colors.ListBG, TextColor3 = Colors.Dim })
+			end
+		end)
 		optionBtn.MouseButton1Click:Connect(function()
 			selected = option
 			refresh()
 			expanded = false
+			list.Visible = false
 			list.Size = UDim2.new(1, 0, 0, 0)
-			holder.Size = UDim2.new(1, 0, 0, 34)
 			arrow.Text = "v"
+			tween(header, 0.12, { BackgroundColor3 = Colors.Surface })
 			if callback then pcall(callback, selected) end
 		end)
 	end
 	refresh()
 
-	local header = create("TextButton", {
-		BackgroundTransparency = 1,
-		Size = UDim2.new(1, 0, 0, 34),
-		Text = "",
-		ZIndex = 2,
-		Parent = holder,
-	})
 	header.MouseButton1Click:Connect(function()
 		expanded = not expanded
 		if expanded then
-			local listHeight = #options * 26 + 6
+			local listHeight = math.min(#options * 27 + 8, 150)
 			list.Size = UDim2.new(1, 0, 0, listHeight)
-			holder.Size = UDim2.new(1, 0, 0, 34 + listHeight)
+			list.Visible = true
 			arrow.Text = "^"
+			tween(header, 0.12, { BackgroundColor3 = Colors.SurfaceHover })
 		else
+			list.Visible = false
 			list.Size = UDim2.new(1, 0, 0, 0)
-			holder.Size = UDim2.new(1, 0, 0, 34)
 			arrow.Text = "v"
+			tween(header, 0.12, { BackgroundColor3 = Colors.Surface })
 		end
 	end)
 
@@ -741,15 +791,15 @@ function Testy:CreateDropdown(page, label, options, default, callback)
 end
 
 function Testy:CreateInput(page, label, placeholder, default, callback)
-	local pageInstance = type(page) == "string" and self.Pages[page] or page
-	if not pageInstance then return end
+	local p = type(page) == "string" and self.Pages[page] or page
+	if not p then return end
 
 	local row = create("Frame", {
 		Size = UDim2.new(1, 0, 0, 44),
 		BackgroundColor3 = Colors.Surface,
 		BorderSizePixel = 0,
 		Active = true,
-		Parent = pageInstance,
+		Parent = p,
 	})
 	corner(4, row)
 
@@ -797,8 +847,8 @@ function Testy:CreateInput(page, label, placeholder, default, callback)
 end
 
 function Testy:CreateKeybind(page, label, default, callback)
-	local pageInstance = type(page) == "string" and self.Pages[page] or page
-	if not pageInstance then return end
+	local p = type(page) == "string" and self.Pages[page] or page
+	if not p then return end
 
 	local key = default or Enum.KeyCode.Unknown
 	local listening = false
@@ -808,7 +858,7 @@ function Testy:CreateKeybind(page, label, default, callback)
 		BackgroundColor3 = Colors.Surface,
 		BorderSizePixel = 0,
 		Active = true,
-		Parent = pageInstance,
+		Parent = p,
 	})
 	corner(4, row)
 
@@ -941,10 +991,80 @@ function Testy:Notify(title, content, kind, duration)
 	end)
 end
 
+function Testy:CreateConfig(page, configName)
+	local p = type(page) == "string" and self.Pages[page] or page
+	if not p then return end
+
+	configName = configName or "testy_config.json"
+
+	local inputWidget = self:CreateInput(p, "Config file", "testy_config.json", configName, function(text)
+		if text and text ~= "" then
+			configName = text
+		end
+	end)
+
+	self:CreateButton(p, "Save Config", function()
+		if not HAS_FILE then
+			self:Notify("Config", "Executor has no writefile", "error", 3)
+			return
+		end
+		local data = {}
+		for k, v in pairs(self.Flags) do
+			data[k] = v
+		end
+		local ok, encoded = pcall(function() return HttpService:JSONEncode(data) end)
+		if not ok then
+			self:Notify("Config", "Encode failed", "error", 3)
+			return
+		end
+		local wrote = pcall(function() writefile(configName, encoded) end)
+		if wrote then
+			self:Notify("Config", "Saved to " .. configName, "success", 3)
+		else
+			self:Notify("Config", "Write failed", "error", 3)
+		end
+	end)
+
+	self:CreateButton(p, "Load Config", function()
+		if not HAS_FILE then
+			self:Notify("Config", "Executor has no readfile", "error", 3)
+			return
+		end
+		local exists = pcall(function() return isfile(configName) end)
+		if not exists or not isfile(configName) then
+			self:Notify("Config", "File not found", "warning", 3)
+			return
+		end
+		local ok, contents = pcall(function() return readfile(configName) end)
+		if not ok or not contents then
+			self:Notify("Config", "Read failed", "error", 3)
+			return
+		end
+		local ok2, decoded = pcall(function() return HttpService:JSONDecode(contents) end)
+		if not ok2 then
+			self:Notify("Config", "Decode failed", "error", 3)
+			return
+		end
+		for k, v in pairs(decoded) do
+			self.Flags[k] = v
+		end
+		self:Notify("Config", "Loaded from " .. configName, "success", 3)
+	end)
+
+	return {
+		SetName = function(name) configName = name end,
+		GetName = function() return configName end,
+	}
+end
+
+Testy:RegisterTab("Main")
+Testy:RegisterTab("Player")
+Testy:RegisterTab("Settings")
+
 MainFrame.Visible = true
 
 task.delay(0.3, function()
-	Testy:Notify("Testy UI", "v1.0.0 loaded - RCTRL to toggle", "success", 4)
+	Testy:Notify("Testy UI", "v1.1.0 loaded - RCTRL to toggle", "success", 4)
 end)
 
 return Testy
