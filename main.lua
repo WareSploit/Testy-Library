@@ -143,6 +143,7 @@ local TopBar = create("Frame", {
 	Position = UDim2.new(0, 0, 0, 30),
 	BackgroundColor3 = Colors.BG,
 	BorderSizePixel = 0,
+	ClipsDescendants = true,
 	Parent = MainFrame,
 })
 
@@ -152,6 +153,7 @@ create("Frame", {
 	BorderSizePixel = 0,
 	Size = UDim2.new(1, 0, 0, 1),
 	Position = UDim2.new(0, 0, 1, -1),
+	ZIndex = 10,
 	Parent = TopBar,
 })
 
@@ -216,6 +218,7 @@ Testy.HasFile = HAS_FILE
 
 local ActiveTab = nil
 local TabOrder = 0
+local TAB_WIDTH = 111
 
 local function makePage(name)
 	local page = create("ScrollingFrame", {
@@ -262,10 +265,12 @@ end
 function Testy:RegisterTab(name)
 	TabOrder = TabOrder + 1
 	local order = TabOrder
+	local xPos = (order - 1) * TAB_WIDTH
 
 	local btn = create("TextButton", {
 		Name = "Tab_" .. name,
-		Size = UDim2.fromOffset(111, 29),
+		Size = UDim2.fromOffset(TAB_WIDTH, 29),
+		Position = UDim2.fromOffset(xPos, 0),
 		BackgroundColor3 = Colors.Bar,
 		BorderSizePixel = 0,
 		Text = name,
@@ -273,18 +278,9 @@ function Testy:RegisterTab(name)
 		TextSize = 14,
 		FontFace = FontRegular,
 		AutoButtonColor = false,
-		LayoutOrder = order,
+		ZIndex = 5,
 		Parent = TopBar,
 	})
-
-	local layout = TopBar:FindFirstChildOfClass("UIListLayout")
-	if not layout then
-		layout = create("UIListLayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			VerticalAlignment = Enum.VerticalAlignment.Center,
-		}, TopBar)
-	end
 
 	Testy.TabButtons[name] = btn
 	makePage(name)
@@ -342,9 +338,7 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 UserInputService.InputEnded:Connect(function(input)
-	if isPress(input) then
-		dragging = false
-	end
+	if isPress(input) then dragging = false end
 end)
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -991,64 +985,76 @@ function Testy:Notify(title, content, kind, duration)
 	end)
 end
 
+function Testy:SaveConfig(filename)
+	filename = filename or "testy_config.json"
+	if not HAS_FILE then
+		self:Notify("Config", "Executor has no writefile", "error", 3)
+		return false
+	end
+	local data = {}
+	for k, v in pairs(self.Flags) do
+		data[k] = v
+	end
+	local ok, encoded = pcall(function() return HttpService:JSONEncode(data) end)
+	if not ok then
+		self:Notify("Config", "Encode failed", "error", 3)
+		return false
+	end
+	local wrote = pcall(function() writefile(filename, encoded) end)
+	if wrote then
+		self:Notify("Config", "Saved to " .. filename, "success", 3)
+		return true
+	end
+	self:Notify("Config", "Write failed", "error", 3)
+	return false
+end
+
+function Testy:LoadConfig(filename)
+	filename = filename or "testy_config.json"
+	if not HAS_FILE then
+		self:Notify("Config", "Executor has no readfile", "error", 3)
+		return false
+	end
+	local exists = pcall(function() return isfile(filename) end)
+	if not exists or not isfile(filename) then
+		self:Notify("Config", "File not found", "warning", 3)
+		return false
+	end
+	local ok, contents = pcall(function() return readfile(filename) end)
+	if not ok or not contents then
+		self:Notify("Config", "Read failed", "error", 3)
+		return false
+	end
+	local ok2, decoded = pcall(function() return HttpService:JSONDecode(contents) end)
+	if not ok2 then
+		self:Notify("Config", "Decode failed", "error", 3)
+		return false
+	end
+	for k, v in pairs(decoded) do
+		self.Flags[k] = v
+	end
+	self:Notify("Config", "Loaded from " .. filename, "success", 3)
+	return true
+end
+
 function Testy:CreateConfig(page, configName)
 	local p = type(page) == "string" and self.Pages[page] or page
 	if not p then return end
 
 	configName = configName or "testy_config.json"
 
-	local inputWidget = self:CreateInput(p, "Config file", "testy_config.json", configName, function(text)
+	self:CreateInput(p, "Config file", "testy_config.json", configName, function(text)
 		if text and text ~= "" then
 			configName = text
 		end
 	end)
 
 	self:CreateButton(p, "Save Config", function()
-		if not HAS_FILE then
-			self:Notify("Config", "Executor has no writefile", "error", 3)
-			return
-		end
-		local data = {}
-		for k, v in pairs(self.Flags) do
-			data[k] = v
-		end
-		local ok, encoded = pcall(function() return HttpService:JSONEncode(data) end)
-		if not ok then
-			self:Notify("Config", "Encode failed", "error", 3)
-			return
-		end
-		local wrote = pcall(function() writefile(configName, encoded) end)
-		if wrote then
-			self:Notify("Config", "Saved to " .. configName, "success", 3)
-		else
-			self:Notify("Config", "Write failed", "error", 3)
-		end
+		self:SaveConfig(configName)
 	end)
 
 	self:CreateButton(p, "Load Config", function()
-		if not HAS_FILE then
-			self:Notify("Config", "Executor has no readfile", "error", 3)
-			return
-		end
-		local exists = pcall(function() return isfile(configName) end)
-		if not exists or not isfile(configName) then
-			self:Notify("Config", "File not found", "warning", 3)
-			return
-		end
-		local ok, contents = pcall(function() return readfile(configName) end)
-		if not ok or not contents then
-			self:Notify("Config", "Read failed", "error", 3)
-			return
-		end
-		local ok2, decoded = pcall(function() return HttpService:JSONDecode(contents) end)
-		if not ok2 then
-			self:Notify("Config", "Decode failed", "error", 3)
-			return
-		end
-		for k, v in pairs(decoded) do
-			self.Flags[k] = v
-		end
-		self:Notify("Config", "Loaded from " .. configName, "success", 3)
+		self:LoadConfig(configName)
 	end)
 
 	return {
